@@ -1,20 +1,20 @@
 #!/bin/bash
 
-echo "🚀 Setting up Shard 2 Server (Output Shard - Layers 3-5)"
-echo "========================================================="
+echo "🌐 Setting up P2P Shard 1 (Output Peer - Layers 3-5)"
+echo "===================================================="
 
 # Use known private IP addresses
 INSTANCE1_IP="172.31.42.169"
 INSTANCE2_IP="172.31.34.102"
 
-echo "📝 Instance 1 (shard 1): $INSTANCE1_IP"
-echo "📝 Instance 2 (this machine): $INSTANCE2_IP"
+echo "📝 Instance 1 (peer 1): $INSTANCE1_IP"
+echo "📝 Instance 2 (this peer): $INSTANCE2_IP"
 
 # Activate virtual environment
 source venv/bin/activate
 
 # Create shard 2 config
-echo "🔧 Creating Shard 2 configuration..."
+echo "🔧 Creating P2P Shard 1 configuration..."
 cat > shard2_config.json << EOF
 {
   "total_layers": 6,
@@ -36,7 +36,7 @@ cat > shard2_config.json << EOF
 }
 EOF
 
-echo "✅ Shard 2 config created"
+echo "✅ P2P Shard 1 config created"
 
 # Check if model exists
 if [ ! -d "./models" ]; then
@@ -44,11 +44,24 @@ if [ ! -d "./models" ]; then
     python download_distillgpt2.py
 fi
 
-echo "🚀 Starting Shard 2 Server..."
-echo "🔸 Layers: 3-5 (Output Shard)"
+echo "🚀 Starting P2P Shard 1 (Output Peer)..."
+echo "🔸 Layers: 3-5 (Output Generation)"
 echo "🔸 Port: 8000"
-echo "🔸 Receives from: http://$INSTANCE1_IP:8000"
+echo "🔸 P2P Partner: http://$INSTANCE1_IP:8000"
 echo ""
+echo "🌟 P2P Endpoints Available:"
+echo "   - Direct Generation: POST /generate (auto-routes to input peer)"
+echo "   - Peer Discovery: GET /peers"
+echo "   - Health Check: GET /health"
+echo "   - Inter-shard: POST /process"
+echo ""
+echo "🧪 Test P2P Generation:"
+echo "   curl -X POST http://localhost:8000/generate \\"
+echo "     -H 'Content-Type: application/json' \\"
+echo "     -d '{\"prompt\": \"Hello P2P\", \"max_length\": 15}'"
+echo ""
+echo "🌐 No coordinator needed - this is a true P2P peer!"
+echo "🔀 Requests to this peer auto-route to input peer"
 echo "Press Ctrl+C to stop"
 echo ""
 

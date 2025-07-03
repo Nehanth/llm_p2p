@@ -13,15 +13,45 @@ from pydantic import BaseModel
 import uvicorn
 import argparse
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import numpy as np
 import json
+import time
 
 from shard_config import DistributedConfig, ShardConfig
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Add new request models for direct generation
+class GenerateRequest(BaseModel):
+    """Request format for direct generation"""
+    prompt: str
+    max_length: int = 20
+    temperature: float = 0.7
+    top_p: float = 0.9
+    top_k: int = 50
+    do_sample: bool = True
+    repetition_penalty: float = 1.1
+    num_return_sequences: int = 1
+
+class GenerateResponse(BaseModel):
+    """Response format for direct generation"""
+    generated_texts: List[str]
+    prompt: str
+    processing_time: float
+    shards_used: List[int]
+
+class PeerInfo(BaseModel):
+    """Information about a peer shard"""
+    shard_id: int
+    layers: str
+    host: str
+    port: int
+    is_input: bool
+    is_output: bool
+    status: str = "unknown"
 
 class ShardedModel(nn.Module):
     """A portion of the DistilGPT-2 model"""
@@ -140,10 +170,14 @@ class ShardServer:
         self.tokenizer = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
+        # P2P capabilities
+        self.peers = {}  # Known peers in the network
+        self.network_topology = {}  # Network topology for routing
+        
         # FastAPI app
         self.app = FastAPI(
-            title=f"Shard {shard_config.shard_id} Server",
-            description=f"Distributed DistilGPT-2 Shard (Layers {shard_config.start_layer}-{shard_config.end_layer})"
+            title=f"P2P Shard {shard_config.shard_id} Server",
+            description=f"P2P Distributed DistilGPT-2 Shard (Layers {shard_config.start_layer}-{shard_config.end_layer})"
         )
         
         self.setup_routes()
@@ -197,6 +231,34 @@ class ShardServer:
                 "model_loaded": self.model is not None
             }
             
+        @self.app.post("/generate", response_model=GenerateResponse)
+        async def generate(request: GenerateRequest):
+            """Direct generation endpoint - P2P capability"""
+            if self.model is None:
+                raise HTTPException(status_code=503, detail="Model not loaded")
+            
+            try:
+                # Discover peers if not already done
+                if not self.peers:
+                    await self.discover_peers()
+                
+                # Generate text using P2P routing
+                return await self.generate_text_p2p(request)
+                
+            except Exception as e:
+                logger.error(f"Generation failed: {str(e)}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/peers")
+        async def get_peers():
+            """Get information about discovered peers"""
+            await self.discover_peers()
+            return {
+                "peers": [peer.dict() for peer in self.peers.values()],
+                "total_peers": len(self.peers),
+                "self_shard_id": self.shard_config.shard_id
+            }
+            
         @self.app.post("/process", response_model=ShardResponse)
         async def process_shard(request: ShardRequest):
             if self.model is None:
@@ -244,6 +306,166 @@ class ShardServer:
                 logger.error(f"Processing failed: {str(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
 
+    async def discover_peers(self):
+        """Discover other peers in the network"""
+        logger.info("🔍 Discovering peers...")
+        
+        # For now, use hardcoded peer discovery
+        # In a real P2P system, this would use DHT/gossip protocol
+        potential_peers = [
+            {"host": "172.31.42.169", "port": 8000},
+            {"host": "172.31.34.102", "port": 8000},
+        ]
+        
+        for peer_info in potential_peers:
+            # Skip self
+            if (peer_info["host"] == self.shard_config.host and 
+                peer_info["port"] == self.shard_config.port):
+                continue
+                
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"http://{peer_info['host']}:{peer_info['port']}/health",
+                        timeout=5
+                    ) as response:
+                        if response.status == 200:
+                            health_data = await response.json()
+                            peer = PeerInfo(
+                                shard_id=health_data["shard_id"],
+                                layers=health_data["layers"],
+                                host=peer_info["host"],
+                                port=peer_info["port"],
+                                is_input=health_data["is_input"],
+                                is_output=health_data["is_output"],
+                                status="healthy"
+                            )
+                            self.peers[peer.shard_id] = peer
+                            logger.info(f"✅ Discovered peer: Shard {peer.shard_id} at {peer.host}:{peer.port}")
+            except Exception as e:
+                logger.warning(f"❌ Failed to connect to peer {peer_info['host']}:{peer_info['port']}: {e}")
+                
+        logger.info(f"🌐 Discovered {len(self.peers)} peers")
+        
+    async def find_input_shard(self) -> Optional[PeerInfo]:
+        """Find the input shard in the network"""
+        for peer in self.peers.values():
+            if peer.is_input:
+                return peer
+        return None
+        
+    async def find_output_shard(self) -> Optional[PeerInfo]:
+        """Find the output shard in the network"""
+        for peer in self.peers.values():
+            if peer.is_output:
+                return peer
+        return None
+        
+    async def generate_text_p2p(self, request: GenerateRequest) -> GenerateResponse:
+        """Generate text using P2P routing"""
+        start_time = time.time()
+        shards_used = []
+        
+        # Step 1: Find input shard
+        input_shard = await self.find_input_shard()
+        if not input_shard and not self.shard_config.is_input_shard:
+            raise HTTPException(status_code=503, detail="No input shard available")
+            
+        # Step 2: Route to input shard or process locally
+        if self.shard_config.is_input_shard:
+            # We are the input shard
+            logger.info("🚀 Processing as input shard")
+            shards_used.append(self.shard_config.shard_id)
+            
+            # Tokenize input
+            inputs = self.tokenizer.encode(request.prompt, return_tensors="pt").to(self.device)
+            
+            # Generate tokens
+            generated_tokens = []
+            current_input = inputs
+            
+            for _ in range(request.max_length - len(inputs[0])):
+                # Process current input through our shard
+                with torch.no_grad():
+                    hidden_states = self.model({"input_ids": current_input})
+                    
+                # Route to next shard
+                if self.shard_config.next_shard_url:
+                    tensor_data = tensor_to_dict(hidden_states)
+                    next_request = ShardRequest(tensor_data=tensor_data)
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            f"{self.shard_config.next_shard_url}/process",
+                            json=next_request.dict()
+                        ) as response:
+                            result = await response.json()
+                            if result.get("is_final"):
+                                logits = torch.tensor(result["logits"])
+                                
+                                # Sample next token
+                                if request.do_sample:
+                                    # Apply temperature
+                                    logits = logits / request.temperature
+                                    
+                                    # Apply top_k filtering
+                                    if request.top_k > 0:
+                                        indices_to_remove = logits < torch.topk(logits, request.top_k)[0][..., -1, None]
+                                        logits[indices_to_remove] = float('-inf')
+                                    
+                                    # Apply top_p filtering
+                                    if request.top_p < 1.0:
+                                        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                                        cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
+                                        
+                                        # Remove tokens with cumulative probability above the threshold
+                                        sorted_indices_to_remove = cumulative_probs > request.top_p
+                                        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                                        sorted_indices_to_remove[..., 0] = 0
+                                        
+                                        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                                        logits[indices_to_remove] = float('-inf')
+                                    
+                                    # Sample from the filtered distribution
+                                    probs = torch.softmax(logits, dim=-1)
+                                    next_token = torch.multinomial(probs, num_samples=1)
+                                else:
+                                    next_token = torch.argmax(logits, dim=-1, keepdim=True)
+                                
+                                # Check for end of sequence
+                                if next_token.item() == self.tokenizer.eos_token_id:
+                                    break
+                                    
+                                generated_tokens.append(next_token.item())
+                                current_input = torch.cat([current_input, next_token], dim=1)
+                            
+                            # Track shards used
+                            if result.get("shard_id"):
+                                shards_used.append(result["shard_id"])
+                                
+            # Decode generated text
+            full_tokens = torch.cat([inputs, torch.tensor([generated_tokens]).to(self.device)], dim=1)
+            generated_text = self.tokenizer.decode(full_tokens[0], skip_special_tokens=True)
+            
+            processing_time = time.time() - start_time
+            
+            return GenerateResponse(
+                generated_texts=[generated_text],
+                prompt=request.prompt,
+                processing_time=processing_time,
+                shards_used=shards_used
+            )
+        else:
+            # Route to input shard
+            logger.info(f"🔀 Routing to input shard: {input_shard.host}:{input_shard.port}")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"http://{input_shard.host}:{input_shard.port}/generate",
+                    json=request.dict()
+                ) as response:
+                    result = await response.json()
+                    return GenerateResponse(**result)
+
 def main():
     parser = argparse.ArgumentParser(description="Run a model shard server")
     parser.add_argument("--shard-id", type=int, required=True, help="Shard ID to run")
@@ -264,17 +486,31 @@ def main():
     server = ShardServer(shard_config, config)
     server.load_model()
     
-    print(f"🚀 Starting Shard {args.shard_id} Server...")
+    print(f"🚀 Starting P2P Shard {args.shard_id} Server...")
     print(f"📊 Layers: {shard_config.start_layer}-{shard_config.end_layer}")
     print(f"🌐 Server: http://{shard_config.host}:{shard_config.port}")
     print(f"🔧 Device: {server.device}")
+    print(f"🌟 P2P Endpoints:")
+    print(f"   - Generate: POST /generate")
+    print(f"   - Peers: GET /peers")
+    print(f"   - Health: GET /health")
     
-    # Run server
+    # Initialize peer discovery in the background
+    async def startup_discovery():
+        await asyncio.sleep(2)  # Give server time to start
+        await server.discover_peers()
+    
+    # Run server with startup task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(startup_discovery())
+    
     uvicorn.run(
         server.app,
         host=shard_config.host,
         port=shard_config.port,
-        log_level="info"
+        log_level="info",
+        loop=loop
     )
 
 if __name__ == "__main__":
