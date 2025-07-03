@@ -3,15 +3,9 @@
 echo "🚀 Setting up Shard 1 Server (Input Shard - Layers 0-2)"
 echo "========================================================"
 
-# Get configuration
-INSTANCE1_IP=${1:-"INSTANCE1_IP"}
-INSTANCE2_IP=${2:-"INSTANCE2_IP"}
-
-if [ "$INSTANCE1_IP" = "INSTANCE1_IP" ] || [ "$INSTANCE2_IP" = "INSTANCE2_IP" ]; then
-    echo "Usage: $0 <instance1_ip> <instance2_ip>"
-    echo "Example: $0 18.220.114.100 18.220.114.140"
-    exit 1
-fi
+# Use known private IP addresses
+INSTANCE1_IP="172.31.42.169"
+INSTANCE2_IP="172.31.34.102"
 
 echo "📝 Instance 1 (this machine): $INSTANCE1_IP"
 echo "📝 Instance 2 (shard 2): $INSTANCE2_IP"
