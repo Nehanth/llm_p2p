@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ShardConfig:
+    """Configuration for a single shard"""
     shard_id: int
     start_layer: int
     end_layer: int
@@ -20,7 +21,10 @@ class ShardConfig:
     public_ip: Optional[str] = None  # Added for multi-node support
 
 class DistributedConfig:
+    """Configuration for the entire distributed system"""
+    
     def __init__(self):
+        """Initialize default distributed configuration"""
         # DistilGPT-2 has 6 transformer layers (0-5)
         self.total_layers = 6
         self.model_name = "distilgpt2"
@@ -99,16 +103,20 @@ class DistributedConfig:
 # Default configuration
 DEFAULT_CONFIG = DistributedConfig()
 
-if __name__ == "__main__":
+def main():
+    """Main function to generate and display default configuration"""
     # Save default config
     DEFAULT_CONFIG.save_config("shard_config.json")
-    print("✅ Saved default shard configuration to shard_config.json")
+    print("Saved default shard configuration to shard_config.json")
     
     # Print shard info
-    print("\n📊 Shard Configuration:")
+    print("\nShard Configuration:")
     for shard in DEFAULT_CONFIG.shards:
         print(f"  Shard {shard.shard_id}: Layers {shard.start_layer}-{shard.end_layer} on {shard.host}:{shard.port}")
         if shard.is_input_shard:
             print(f"    → Input shard, forwards to: {shard.next_shard_url}")
         if shard.is_output_shard:
-            print(f"    → Output shard") 
+            print(f"    → Output shard")
+
+if __name__ == "__main__":
+    main() 

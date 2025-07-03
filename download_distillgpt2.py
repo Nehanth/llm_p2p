@@ -35,12 +35,12 @@ def download_distillgpt2():
             torch_dtype=torch.float32  # You can use torch.float16 for smaller memory usage
         )
         
-        print(f"\n✅ Successfully downloaded {model_name}!")
+        print(f"\nSuccessfully downloaded {model_name}!")
         print(f"Model saved in: {cache_dir}")
         print(f"Model parameters: {model.num_parameters():,}")
         
         # Test the model with a simple generation
-        print("\n🧪 Testing model with sample text generation...")
+        print("\nTesting model with sample text generation...")
         input_text = "The future of artificial intelligence is"
         
         # Tokenize input
@@ -64,12 +64,16 @@ def download_distillgpt2():
         return True
         
     except Exception as e:
-        print(f"❌ Error downloading model: {str(e)}")
+        print(f"Error downloading model: {str(e)}")
         return False
 
-if __name__ == "__main__":
+def main():
+    """Main function to download and test the model"""
     success = download_distillgpt2()
     if success:
-        print("\n🎉 Setup complete! You can now use the DistilGPT-2 model.")
+        print("\nSetup complete! You can now use the DistilGPT-2 model.")
     else:
-        print("\n💥 Setup failed. Please check the error messages above.") 
+        print("\nSetup failed. Please check the error messages above.")
+
+if __name__ == "__main__":
+    main() 

@@ -24,7 +24,6 @@ from shard_config import DistributedConfig, ShardConfig
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add new request models for direct generation
 class GenerateRequest(BaseModel):
     """Request format for direct generation"""
     prompt: str
@@ -57,6 +56,7 @@ class ShardedModel(nn.Module):
     """A portion of the DistilGPT-2 model"""
     
     def __init__(self, full_model: GPT2LMHeadModel, start_layer: int, end_layer: int, is_input: bool, is_output: bool):
+        """Initialize sharded model with specific layers"""
         super().__init__()
         
         self.start_layer = start_layer
@@ -164,6 +164,7 @@ def dict_to_tensor(tensor_data: TensorData, device: str) -> torch.Tensor:
 
 class ShardServer:
     def __init__(self, shard_config: ShardConfig, model_config: DistributedConfig):
+        """Initialize P2P shard server with configuration"""
         self.shard_config = shard_config
         self.model_config = model_config
         self.model = None
@@ -214,10 +215,10 @@ class ShardServer:
         self.model.to(self.device)
         self.model.eval()
         
-        logger.info(f"✅ Shard {self.shard_config.shard_id} loaded successfully on {self.device}")
+        logger.info(f"Shard {self.shard_config.shard_id} loaded successfully on {self.device}")
         
     def setup_routes(self):
-        """Setup FastAPI routes"""
+        """Setup FastAPI routes and endpoints"""
         
         @self.app.on_event("startup")
         async def startup_event():
@@ -227,6 +228,7 @@ class ShardServer:
         
         @self.app.get("/health")
         async def health():
+            """Health check endpoint returning shard status"""
             return {
                 "status": "healthy",
                 "shard_id": self.shard_config.shard_id,
@@ -267,6 +269,7 @@ class ShardServer:
             
         @self.app.post("/process", response_model=ShardResponse)
         async def process_shard(request: ShardRequest):
+            """Process shard computation for inter-shard communication"""
             if self.model is None:
                 raise HTTPException(status_code=503, detail="Model not loaded")
                 
@@ -313,8 +316,8 @@ class ShardServer:
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def discover_peers(self):
-        """Discover other peers in the network"""
-        logger.info("🔍 Discovering peers...")
+        """Discover other peers in the network using hardcoded peer list"""
+        logger.info("Discovering peers...")
         
         # For now, use hardcoded peer discovery
         # In a real P2P system, this would use DHT/gossip protocol
@@ -347,11 +350,11 @@ class ShardServer:
                                 status="healthy"
                             )
                             self.peers[peer.shard_id] = peer
-                            logger.info(f"✅ Discovered peer: Shard {peer.shard_id} at {peer.host}:{peer.port}")
+                            logger.info(f"Discovered peer: Shard {peer.shard_id} at {peer.host}:{peer.port}")
             except Exception as e:
-                logger.warning(f"❌ Failed to connect to peer {peer_info['host']}:{peer_info['port']}: {e}")
+                logger.warning(f"Failed to connect to peer {peer_info['host']}:{peer_info['port']}: {e}")
                 
-        logger.info(f"🌐 Discovered {len(self.peers)} peers")
+        logger.info(f"Discovered {len(self.peers)} peers")
         
     async def find_input_shard(self) -> Optional[PeerInfo]:
         """Find the input shard in the network"""
@@ -368,7 +371,7 @@ class ShardServer:
         return None
         
     async def generate_text_p2p(self, request: GenerateRequest) -> GenerateResponse:
-        """Generate text using P2P routing"""
+        """Generate text using P2P routing between shards"""
         start_time = time.time()
         shards_used = []
         
@@ -380,7 +383,7 @@ class ShardServer:
         # Step 2: Route to input shard or process locally
         if self.shard_config.is_input_shard:
             # We are the input shard
-            logger.info("🚀 Processing as input shard")
+            logger.info("Processing as input shard")
             shards_used.append(self.shard_config.shard_id)
             
             # Tokenize input
@@ -476,7 +479,7 @@ class ShardServer:
             )
         else:
             # Route to input shard
-            logger.info(f"🔀 Routing to input shard: {input_shard.host}:{input_shard.port}")
+            logger.info(f"Routing to input shard: {input_shard.host}:{input_shard.port}")
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     f"http://{input_shard.host}:{input_shard.port}/generate",
@@ -486,6 +489,7 @@ class ShardServer:
                     return GenerateResponse(**result)
 
 def main():
+    """Main function to start the shard server"""
     parser = argparse.ArgumentParser(description="Run a model shard server")
     parser.add_argument("--shard-id", type=int, required=True, help="Shard ID to run")
     parser.add_argument("--config", type=str, default="shard_config.json", help="Config file path")
@@ -505,11 +509,11 @@ def main():
     server = ShardServer(shard_config, config)
     server.load_model()
     
-    print(f"🚀 Starting P2P Shard {args.shard_id} Server...")
-    print(f"📊 Layers: {shard_config.start_layer}-{shard_config.end_layer}")
-    print(f"🌐 Server: http://{shard_config.host}:{shard_config.port}")
-    print(f"🔧 Device: {server.device}")
-    print(f"🌟 P2P Endpoints:")
+    print(f"Starting P2P Shard {args.shard_id} Server...")
+    print(f"Layers: {shard_config.start_layer}-{shard_config.end_layer}")
+    print(f"Server: http://{shard_config.host}:{shard_config.port}")
+    print(f"Device: {server.device}")
+    print(f"P2P Endpoints:")
     print(f"   - Generate: POST /generate")
     print(f"   - Peers: GET /peers")
     print(f"   - Health: GET /health")

@@ -9,7 +9,10 @@ from dataclasses import dataclass
 from shard_config import ShardConfig
 
 class MultiNodeConfig:
+    """Configuration for multi-node distributed setup"""
+    
     def __init__(self):
+        """Initialize multi-node configuration with default values"""
         # DistilGPT-2 has 6 transformer layers (0-5)
         self.total_layers = 6
         self.model_name = "distilgpt2"
@@ -89,9 +92,8 @@ class MultiNodeConfig:
         
         return config
 
-# Generate configs for each node
 def generate_node_configs():
-    """Generate separate config files for each node"""
+    """Generate separate config files for each node with user-provided IPs"""
     
     # Get instance IPs (you'll need to replace these)
     instance_1_ip = input("Enter Instance 1 Public IP (where shard 0 will run): ").strip()
@@ -117,19 +119,20 @@ def generate_node_configs():
     node2_config.shards = [config.shards[1]]
     node2_config.save_config("node2_config.json")
     
-    print(f"\n✅ Generated configurations:")
-    print(f"📋 multi_node_config.json - Complete multi-node setup")
-    print(f"🔹 node1_config.json - For instance 1 ({instance_1_ip}) - Shard 0")
-    print(f"🔹 node2_config.json - For instance 2 ({instance_2_ip}) - Shard 1")
+    print(f"\nGenerated configurations:")
+    print(f"multi_node_config.json - Complete multi-node setup")
+    print(f"node1_config.json - For instance 1 ({instance_1_ip}) - Shard 0")
+    print(f"node2_config.json - For instance 2 ({instance_2_ip}) - Shard 1")
     
-    print(f"\n🚀 Deployment Instructions:")
+    print(f"\nDeployment Instructions:")
     print(f"1. Copy node1_config.json to Instance 1")
     print(f"2. Copy node2_config.json to Instance 2") 
     print(f"3. On Instance 1: python shard_server.py --shard-id 0 --config node1_config.json")
     print(f"4. On Instance 2: python shard_server.py --shard-id 1 --config node2_config.json")
     print(f"5. Client can connect to either instance")
 
-if __name__ == "__main__":
+def main():
+    """Main function to handle configuration generation"""
     import sys
     
     if len(sys.argv) > 1 and sys.argv[1] == "generate":
@@ -138,5 +141,8 @@ if __name__ == "__main__":
         # Default single-node config for testing
         config = MultiNodeConfig()
         config.save_config("multi_node_config.json")
-        print("✅ Saved default multi-node configuration")
-        print("📝 Run 'python multi_node_config.py generate' to create node-specific configs") 
+        print("Saved default multi-node configuration")
+        print("Run 'python multi_node_config.py generate' to create node-specific configs")
+
+if __name__ == "__main__":
+    main() 
