@@ -407,7 +407,14 @@ class ShardServer:
                         ) as response:
                             result = await response.json()
                             if result.get("is_final"):
-                                logits = torch.tensor(result["logits"])
+                                # Get logits from final shard
+                                logits = torch.tensor(result["logits"]).to(self.device)
+                                
+                                # Handle logits dimensions properly
+                                if logits.dim() == 3:
+                                    logits = logits[0, -1, :]  # [batch, seq_len, vocab] -> [vocab]
+                                elif logits.dim() == 2:
+                                    logits = logits[-1, :]     # [seq_len, vocab] -> [vocab]
                                 
                                 # Sample next token
                                 if request.do_sample:
@@ -416,8 +423,10 @@ class ShardServer:
                                     
                                     # Apply top_k filtering
                                     if request.top_k > 0:
-                                        indices_to_remove = logits < torch.topk(logits, request.top_k)[0][..., -1, None]
-                                        logits[indices_to_remove] = float('-inf')
+                                        top_k_logits, top_k_indices = torch.topk(logits, min(request.top_k, logits.size(-1)))
+                                        logits_filtered = torch.full_like(logits, float('-inf'))
+                                        logits_filtered.scatter_(-1, top_k_indices, top_k_logits)
+                                        logits = logits_filtered
                                     
                                     # Apply top_p filtering
                                     if request.top_p < 1.0:
@@ -426,10 +435,10 @@ class ShardServer:
                                         
                                         # Remove tokens with cumulative probability above the threshold
                                         sorted_indices_to_remove = cumulative_probs > request.top_p
-                                        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                                        sorted_indices_to_remove[..., 0] = 0
+                                        sorted_indices_to_remove[1:] = sorted_indices_to_remove[:-1].clone()
+                                        sorted_indices_to_remove[0] = 0
                                         
-                                        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                                        indices_to_remove = sorted_indices[sorted_indices_to_remove]
                                         logits[indices_to_remove] = float('-inf')
                                     
                                     # Sample from the filtered distribution
@@ -443,14 +452,18 @@ class ShardServer:
                                     break
                                     
                                 generated_tokens.append(next_token.item())
-                                current_input = torch.cat([current_input, next_token], dim=1)
+                                current_input = torch.cat([current_input, next_token.unsqueeze(0)], dim=1)
                             
                             # Track shards used
                             if result.get("shard_id"):
                                 shards_used.append(result["shard_id"])
                                 
             # Decode generated text
-            full_tokens = torch.cat([inputs, torch.tensor([generated_tokens]).to(self.device)], dim=1)
+            if generated_tokens:
+                full_tokens = torch.cat([inputs, torch.tensor([generated_tokens]).to(self.device)], dim=1)
+            else:
+                full_tokens = inputs
+                
             generated_text = self.tokenizer.decode(full_tokens[0], skip_special_tokens=True)
             
             processing_time = time.time() - start_time
