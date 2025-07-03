@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Model cache
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Process IDs
+.distributed_pids
+.demo_pids
+
+# Generated configs
+*_config.json
+demo_*.json
+shard1_config.json
+shard2_config.json
+client_config.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo 
