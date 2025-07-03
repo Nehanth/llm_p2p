@@ -219,6 +219,12 @@ class ShardServer:
     def setup_routes(self):
         """Setup FastAPI routes"""
         
+        @self.app.on_event("startup")
+        async def startup_event():
+            """Initialize peer discovery on startup"""
+            await asyncio.sleep(2)  # Give server time to start
+            await self.discover_peers()
+        
         @self.app.get("/health")
         async def health():
             return {
@@ -495,22 +501,11 @@ def main():
     print(f"   - Peers: GET /peers")
     print(f"   - Health: GET /health")
     
-    # Initialize peer discovery in the background
-    async def startup_discovery():
-        await asyncio.sleep(2)  # Give server time to start
-        await server.discover_peers()
-    
-    # Run server with startup task
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.create_task(startup_discovery())
-    
     uvicorn.run(
         server.app,
         host=shard_config.host,
         port=shard_config.port,
-        log_level="info",
-        loop=loop
+        log_level="info"
     )
 
 if __name__ == "__main__":
