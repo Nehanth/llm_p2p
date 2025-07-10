@@ -17,21 +17,12 @@ network:
 
 **To find your instance IPs:**
 
-**Option 1: AWS Console (Easiest)**
+**AWS Console**
 1. Go to AWS EC2 Console
 2. Click "Instances" in left sidebar
 3. Select your instance
 4. Copy the **Private IPv4 address** from the details panel
 5. Repeat for your second instance
-
-**Option 2: Command Line**
-```bash
-# Get private IP
-curl -s http://169.254.169.254/latest/meta-data/local-ipv4
-
-# Or use hostname command
-hostname -I | awk '{print $1}'
-```
 
 ## Setup
 
