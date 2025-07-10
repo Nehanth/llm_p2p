@@ -39,28 +39,6 @@ def download_distillgpt2():
         print(f"Model saved in: {cache_dir}")
         print(f"Model parameters: {model.num_parameters():,}")
         
-        # Test the model with a simple generation
-        print("\nTesting model with sample text generation...")
-        input_text = "The future of artificial intelligence is"
-        
-        # Tokenize input
-        inputs = tokenizer.encode(input_text, return_tensors="pt")
-        
-        # Generate text
-        with torch.no_grad():
-            outputs = model.generate(
-                inputs,
-                max_length=50,
-                num_return_sequences=1,
-                temperature=0.7,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id
-            )
-        
-        # Decode and print generated text
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        print(f"Generated text: {generated_text}")
-        
         return True
         
     except Exception as e:
