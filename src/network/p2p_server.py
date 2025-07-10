@@ -162,8 +162,11 @@ class P2PServer:
                     # Get logits from final shard
                     logits = torch.tensor(result.logits).to(self.device)
                     
-                    # Sample next token
+                    # Sample next token (this is translation/sampling step on Shard 0)
                     next_token = self._sample_next_token(logits, request)
+                    
+                    # Track that Shard 0 did the translation/sampling
+                    shards_used.append(self.shard_config.shard_id)
                     
                     # Check for end of sequence
                     if next_token.item() == self.tokenizer.eos_token_id:
