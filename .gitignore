@@ -9,7 +9,7 @@ env/
 ENV/
 
 # Model cache
-/model
+/models
 *.safetensors
 *.bin
 *.pt

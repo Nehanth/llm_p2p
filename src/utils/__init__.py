@@ -2,13 +2,11 @@
 Utility functions and configuration management
 """
 
-from .helpers import tensor_to_dict, dict_to_tensor, get_logger
+# Only import config to avoid circular imports
+# Import helpers directly in files that need them
 from .config import Config, ShardConfig
 
 __all__ = [
-    "tensor_to_dict",
-    "dict_to_tensor", 
-    "get_logger",
-    "Config",
+    "Config", 
     "ShardConfig"
 ] 
