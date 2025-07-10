@@ -18,7 +18,7 @@ import numpy as np
 import json
 import time
 
-from shard_config import DistributedConfig, ShardConfig
+from config_loader import Config, ShardConfig
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -163,7 +163,7 @@ def dict_to_tensor(tensor_data: TensorData, device: str) -> torch.Tensor:
     return tensor.to(device)
 
 class ShardServer:
-    def __init__(self, shard_config: ShardConfig, model_config: DistributedConfig):
+    def __init__(self, shard_config: ShardConfig, model_config: Config):
         """Initialize P2P shard server with configuration"""
         self.shard_config = shard_config
         self.model_config = model_config
@@ -497,11 +497,12 @@ def main():
     args = parser.parse_args()
     
     # Load configuration
-    if args.config and args.config != "shard_config.json":
-        config = DistributedConfig.load_config(args.config)
+    if args.config and args.config.endswith('.yaml'):
+        # Load from YAML file
+        config = Config(args.config)
     else:
-        from shard_config import DEFAULT_CONFIG
-        config = DEFAULT_CONFIG
+        # Use default YAML config
+        config = Config()
     
     shard_config = config.get_shard_config(args.shard_id)
     

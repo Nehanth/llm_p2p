@@ -19,12 +19,8 @@ models/
 .distributed_pids
 .demo_pids
 
-# Generated configs
+# Generated configs (legacy)
 *_config.json
-demo_*.json
-shard1_config.json
-shard2_config.json
-client_config.json
 
 # Logs
 *.log
