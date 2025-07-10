@@ -31,7 +31,7 @@ class APIRoutes:
         @app.on_event("startup")
         async def startup_event():
             """Initialize peer discovery on startup"""
-            await asyncio.sleep(2)  # Give server time to start
+            await asyncio.sleep(2)
             await self.p2p_server.discover_peers()
         
         @app.get("/health")
@@ -92,7 +92,8 @@ class APIRoutes:
                         # Final shard - return logits
                         return ShardResponse(
                             logits=hidden_states.detach().cpu().numpy().tolist(),
-                            is_final=True
+                            is_final=True,
+                            shard_id=self.shard_config.shard_id
                         )
                     else:
                         # Intermediate shard - forward to next shard
@@ -107,7 +108,8 @@ class APIRoutes:
                             # No next shard - return tensor data
                             return ShardResponse(
                                 tensor_data=tensor_to_dict(hidden_states),
-                                is_final=False
+                                is_final=False,
+                                shard_id=self.shard_config.shard_id
                             )
                             
             except Exception as e:

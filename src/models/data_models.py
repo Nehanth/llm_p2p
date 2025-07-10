@@ -50,4 +50,5 @@ class ShardResponse(BaseModel):
     """Response format from shard processing"""
     tensor_data: Optional[TensorData] = None
     logits: Optional[list] = None
-    is_final: bool = False 
+    is_final: bool = False
+    shard_id: Optional[int] = None 
