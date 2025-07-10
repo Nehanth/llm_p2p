@@ -6,7 +6,7 @@ Utility functions for the distributed DistilGPT-2 system
 import torch
 import numpy as np
 import logging
-from models import TensorData
+from src.models.data_models import TensorData
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

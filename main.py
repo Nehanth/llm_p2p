@@ -7,11 +7,11 @@ import argparse
 import uvicorn
 from fastapi import FastAPI
 
-from config_loader import Config, ShardConfig
-from sharded_model import ModelLoader
-from p2p_server import P2PServer
-from api_routes import APIRoutes
-from utils import get_logger
+from src.utils.config import Config, ShardConfig
+from src.models.neural_network import ModelLoader
+from src.network.p2p_server import P2PServer
+from src.api.routes import APIRoutes
+from src.utils.helpers import get_logger
 
 logger = get_logger(__name__)
 

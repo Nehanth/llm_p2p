@@ -6,8 +6,8 @@ Sharded neural network model for distributed inference
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModelForCausalLM, GPT2LMHeadModel
-from config_loader import Config, ShardConfig
-from utils import get_logger
+from src.utils.config import Config, ShardConfig
+from src.utils.helpers import get_logger
 
 logger = get_logger(__name__)
 

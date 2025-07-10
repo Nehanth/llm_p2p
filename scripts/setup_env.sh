@@ -117,7 +117,7 @@ fi
 echo "🤖 Checking DistilGPT-2 model..."
 if [ ! -d "models" ]; then
     echo "📥 Downloading DistilGPT-2 model..."
-    python download_distillgpt2.py
+    python scripts/download_distillgpt2.py
     print_status "Model downloaded"
 else
     print_status "Model already exists"

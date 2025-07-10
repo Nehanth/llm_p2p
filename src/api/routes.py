@@ -8,10 +8,10 @@ import torch
 from fastapi import FastAPI, HTTPException
 from typing import Optional
 
-from models import GenerateRequest, GenerateResponse, ShardRequest, ShardResponse
-from config_loader import ShardConfig
-from p2p_server import P2PServer
-from utils import get_logger, dict_to_tensor, tensor_to_dict
+from src.models.data_models import GenerateRequest, GenerateResponse, ShardRequest, ShardResponse
+from src.utils.config import ShardConfig
+from src.network.p2p_server import P2PServer
+from src.utils.helpers import get_logger, dict_to_tensor, tensor_to_dict
 
 logger = get_logger(__name__)
 

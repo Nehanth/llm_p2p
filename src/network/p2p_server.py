@@ -10,9 +10,9 @@ import torch
 from typing import Optional, Dict, List
 from fastapi import HTTPException
 
-from models import PeerInfo, GenerateRequest, GenerateResponse, ShardRequest, ShardResponse
-from config_loader import ShardConfig
-from utils import get_logger, tensor_to_dict, dict_to_tensor
+from src.models.data_models import PeerInfo, GenerateRequest, GenerateResponse, ShardRequest, ShardResponse
+from src.utils.config import ShardConfig
+from src.utils.helpers import get_logger, tensor_to_dict, dict_to_tensor
 
 logger = get_logger(__name__)
 
