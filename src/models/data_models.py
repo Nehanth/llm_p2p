@@ -10,11 +10,11 @@ class GenerateRequest(BaseModel):
     """Request format for direct generation"""
     prompt: str
     max_length: int = 20
-    temperature: float = 0.7
-    top_p: float = 0.9
-    top_k: int = 50
+    temperature: float = 0.7 
+    top_p: float = 0.9 #probability of choosing next token (lower the more confident)
+    top_k: int = 50 # vocab size
     do_sample: bool = True
-    repetition_penalty: float = 1.1
+    repetition_penalty: float = 1.1 #penalize tokens that have already been generated
     num_return_sequences: int = 1
 
 class GenerateResponse(BaseModel):
@@ -36,6 +36,7 @@ class PeerInfo(BaseModel):
 
 class TensorData(BaseModel):
     """Pydantic model for tensor data transfer"""
+    # http requess can not send pytorch tensors, so we need to send the data, shape, and dtype
     data: list
     shape: list
     dtype: str

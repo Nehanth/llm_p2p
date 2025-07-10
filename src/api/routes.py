@@ -70,7 +70,8 @@ class APIRoutes:
             """Get information about discovered peers"""
             await self.p2p_server.discover_peers()
             return self.p2p_server.get_peers_info()
-            
+
+        #process shard that goes back and forth between shards
         @app.post("/process", response_model=ShardResponse)
         async def process_shard(request: ShardRequest):
             """Process shard computation for inter-shard communication"""

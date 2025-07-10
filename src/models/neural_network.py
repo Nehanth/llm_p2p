@@ -45,85 +45,114 @@ class ShardedModel(nn.Module):
     def forward(self, inputs):
         """Forward pass through this shard"""
         if self.is_input_shard:
+            # SHARD 0 (INPUT SHARD)
+            # Flow: User query -> Shard 0 -> Token IDs -> Embeddings -> Hidden States
+            
             # Input processing
             if isinstance(inputs, dict):
-                input_ids = inputs["input_ids"]
+                input_ids = inputs["input_ids"]  # e.g., [15496, 350, 17, 47] for "Hello P2P"
                 position_ids = inputs.get("position_ids")
             else:
                 input_ids = inputs
                 position_ids = None
                 
-            # Get embeddings
+            # STEP 1: Convert token IDs to embeddings (numbers -> vectors)
+            # Token IDs [15496, 350, 17, 47] -> Embedding vectors [768-dim each]
             inputs_embeds = self.wte(input_ids)
             
             if position_ids is None:
                 position_ids = torch.arange(0, input_ids.size(-1), dtype=torch.long, device=input_ids.device)
                 position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
             
+            # STEP 2: Add position information (where each token is in the sequence)
             position_embeds = self.wpe(position_ids)
+            
+            # STEP 3: Combine word + position embeddings = HIDDEN STATES (thought vectors)
             hidden_states = self.drop(inputs_embeds + position_embeds)
         else:
-            # Intermediate shard - input is hidden states
-            hidden_states = inputs
+            # SHARD 1 (OUTPUT SHARD)
+            # Flow: Receive hidden states from Shard 0 -> Process -> Generate logits
             
-        # Pass through transformer blocks
+            # Intermediate shard - input is hidden states from previous shard
+            hidden_states = inputs  # Already processed hidden states from Shard 0
+            
+        # BOTH SHARDS: Process through transformer blocks
+        # Flow: Hidden states -> Transformer layers -> Updated hidden states
+        # Each transformer block does attention + feed-forward processing
         for block in self.h:
             outputs = block(hidden_states)
             if isinstance(outputs, tuple):
-                hidden_states = outputs[0]
+                hidden_states = outputs[0]  # Extract hidden states from tuple
             else:
                 hidden_states = outputs
                 
         if self.is_output_shard:
+            # SHARD 1 (OUTPUT SHARD) FINAL STEP
+            # Flow: Hidden states -> Layer norm -> LM head -> Logits (50,257 probabilities) -> vocab translation
+            
             # Final processing
-            hidden_states = self.ln_f(hidden_states)
-            logits = self.lm_head(hidden_states)
-            return logits
+            hidden_states = self.ln_f(hidden_states)  # Normalize the hidden states
+            logits = self.lm_head(hidden_states)      # Convert to vocabulary probabilities
+            return logits  # Send back to Shard 0 for token sampling/translation
         else:
-            return hidden_states
+            # SHARD 0 (INPUT SHARD) FINAL STEP
+            # Flow: Return hidden states -> Send to Shard 1 via P2P
+            return hidden_states  # Send to next shard for further processing
 
 class ModelLoader:
-    """Handles model loading and initialization"""
+    """Handles model loading and initialization for distributed P2P system"""
     
     def __init__(self, shard_config: ShardConfig, model_config: Config):
-        self.shard_config = shard_config
-        self.model_config = model_config
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Setup: Each shard gets its own ModelLoader with specific configuration
+        self.shard_config = shard_config    
+        self.model_config = model_config  
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         
     def load_model(self):
         """Load the full model and extract our shard"""
+        # Flow: Download complete model -> Extract only our shard's layers
         logger.info(f"Loading shard {self.shard_config.shard_id} (layers {self.shard_config.start_layer}-{self.shard_config.end_layer})")
         
-        # Load full model
+        # This gets the complete GPT2LMHeadModel with all 6 layers + embeddings + LM head
         full_model = AutoModelForCausalLM.from_pretrained(
-            self.model_config.model_name,
-            cache_dir=self.model_config.cache_dir,
-            torch_dtype=torch.float32
+            self.model_config.model_name,  # "distilgpt2"
+            cache_dir=self.model_config.cache_dir,  # "./models" 
+            torch_dtype=torch.float32  # Use float32 for precision
         )
         
-        # Create sharded model
+        # STEP 2: CREATE SHARDED MODEL
+        # Flow: Full model -> Extract specific layers -> Create shard-specific model
+        # This is where the magic happens - we split the model!
         model = ShardedModel(
-            full_model,
-            self.shard_config.start_layer,
-            self.shard_config.end_layer,
-            self.shard_config.is_input_shard,
-            self.shard_config.is_output_shard
+            full_model,  
+            self.shard_config.start_layer,  # Shard 0: 0, Shard 1: 3
+            self.shard_config.end_layer,    # Shard 0: 2, Shard 1: 5
+            self.shard_config.is_input_shard, 
+            self.shard_config.is_output_shard  
         )
         
-        model.to(self.device)
-        model.eval()
+        # STEP 3: PREPARE FOR INFERENCE 
+
+        model.to(self.device)  #cuda or cpu
+        model.eval() #eval means inference
         
         logger.info(f"Shard {self.shard_config.shard_id} loaded successfully on {self.device}")
-        return model
+        return model  # Return the prepared shard
     
     def load_tokenizer(self):
         """Load tokenizer (only for input shard)"""
+        # TOKENIZER LOADING for shard 0
+        # Flow: Only Shard 0 needs tokenizer (text -> tokens, tokens -> text) (full translation)
+        
         if self.shard_config.is_input_shard:
+            # convet text to token id and back
             tokenizer = AutoTokenizer.from_pretrained(
-                self.model_config.model_name,
-                cache_dir=self.model_config.cache_dir
+                self.model_config.model_name,  # "distilgpt2"
+                cache_dir=self.model_config.cache_dir  # "./models"
             )
+            
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
-            return tokenizer
+            return tokenizer 
+        
         return None 
