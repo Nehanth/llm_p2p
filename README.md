@@ -4,29 +4,15 @@ Distributed LLM inference across multiple AWS instances with layer-wise sharding
 
 ## ⚠️ IMPORTANT: Update IP Addresses First!
 
-**Before running the system**, you MUST update the hardcoded IP addresses in these files:
+**Before running the system**, you MUST update the IP addresses in `config.yaml`:
 
-### 1. Update shard_server.py (Line 324-325)
-```python
-# Change these to your actual instance IPs:
-potential_peers = [
-    {"host": "YOUR_INSTANCE_1_PRIVATE_IP", "port": 8000},  # Instance 1
-    {"host": "YOUR_INSTANCE_2_PRIVATE_IP", "port": 8000},  # Instance 2
-]
-```
-
-### 2. Update setup_shard1.sh (Lines 6-7)
-```bash
-# Change these to your actual instance IPs:
-INSTANCE1_IP="YOUR_INSTANCE_1_PRIVATE_IP"
-INSTANCE2_IP="YOUR_INSTANCE_2_PRIVATE_IP"
-```
-
-### 3. Update setup_shard2.sh (Lines 6-7)
-```bash
-# Change these to your actual instance IPs:
-INSTANCE1_IP="YOUR_INSTANCE_1_PRIVATE_IP"
-INSTANCE2_IP="YOUR_INSTANCE_2_PRIVATE_IP"
+### Update config.yaml (Lines 9-10)
+```yaml
+# Network configuration
+network:
+  # Set these to your actual instance IPs
+  instance1_ip: "YOUR_INSTANCE_1_PRIVATE_IP"
+  instance2_ip: "YOUR_INSTANCE_2_PRIVATE_IP"
 ```
 
 **To find your instance IPs:**
@@ -89,6 +75,19 @@ curl http://localhost:8000/peers
 # Check health
 curl http://localhost:8000/health
 ```
+
+### 5. Example walkthrough
+
+For a complete walkthrough, see the Jupyter notebook:
+```bash
+jupyter notebook examples/example.ipynb
+```
+
+The notebook demonstrates:
+- Multi-instance setup and health checks
+- Cross-instance peer discovery
+- Distributed text generation
+- P2P routing
 
 ## Architecture
 
