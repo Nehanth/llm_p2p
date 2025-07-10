@@ -33,4 +33,4 @@ echo "Press Ctrl+C to stop"
 echo ""
 
 # Start shard server
-python shard_server.py --shard-id 1 --config config.yaml 
+python main.py --shard-id 1 --config config.yaml 

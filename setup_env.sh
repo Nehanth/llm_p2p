@@ -11,15 +11,15 @@ NC='\033[0m' # No Color
 
 # Function to print colored output
 print_status() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}✓ $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}WARNING: $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}ERROR: $1${NC}"
 }
 
 # Check if running as root
@@ -57,7 +57,7 @@ sudo apt install -y \
     net-tools
 
 # Detect GPU and install NVIDIA drivers
-echo "🎮 Detecting GPU and installing NVIDIA drivers..."
+echo "Detecting GPU and installing NVIDIA drivers..."
 
 # Check if NVIDIA GPU exists
 if lspci | grep -i nvidia > /dev/null; then
@@ -78,7 +78,7 @@ if lspci | grep -i nvidia > /dev/null; then
         
         print_warning "NVIDIA drivers installed. REBOOT REQUIRED!"
         echo ""
-        echo "🔄 Please run 'sudo reboot' and then run this script again."
+        echo "Please run 'sudo reboot' and then run this script again."
         echo "   After reboot, run: ./setup_env.sh"
         exit 0
     fi
@@ -139,7 +139,7 @@ else:
 
 # Security group reminders
 echo ""
-echo "🔒 Security Group Configuration:"
+echo "Security Group Configuration:"
 print_warning "Make sure these ports are open in your AWS Security Group:"
 echo "   - Port 8000: Shard servers"
 echo "   - Port 9000: Client API"
@@ -147,7 +147,7 @@ echo "   - Port 22: SSH access"
 
 # Get instance IP
 echo ""
-echo "🌐 Instance Information:"
+echo "Instance Information:"
 INSTANCE_IP=$(curl -s http://checkip.amazonaws.com/ || echo "Unable to detect IP")
 echo "   Public IP: $INSTANCE_IP"
 echo "   Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo 'Not available')"
@@ -165,4 +165,4 @@ echo "   ./setup_shard1.sh <ip1> <ip2>  # Start shard 1"
 echo "   ./setup_shard2.sh <ip1> <ip2>  # Start shard 2"  
 echo "   ./setup_client.sh <ip1> <ip2>  # Start client"
 echo ""
-echo "📚 Documentation: Check README.md for detailed instructions" 
+echo "Documentation: Check README.md for detailed instructions" 
